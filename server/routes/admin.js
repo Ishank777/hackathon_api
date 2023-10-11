@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const Post = require('../models/Post');
+const Post = require('../models/post');
 const User = require('../models/User');
 const bcrypt = require('bcrypt');           //password related
 const jwt = require('jsonwebtoken');          //password related
@@ -8,30 +8,6 @@ const jwt = require('jsonwebtoken');          //password related
 const adminLayout = '../views/layouts/admin';
 const jwtSecret = process.env.JWT_SECRET;
 
-
-
-// const axios = require('axios');
-
-// async function summarizer(s1) {
-//   try {
-//     const response = await axios.post('https://chatgpt-api8.p.rapidapi.com/', {
-//       content: s1 + "summarize this",
-//       role: 'user'
-//     }, {
-//       headers: {
-//         'Content-Type': 'application/json',
-//         'X-RapidAPI-Key': '2b71f52155mshcf3efdea631d0acp172739jsnb8acb7705edf',
-//         'X-RapidAPI-Host': 'chatgpt-api8.p.rapidapi.com'
-//       }
-//     });
-
-//     console.log(response.data);
-//     return response.data;
-//   } catch (error) {
-//     console.error(error);
-//     throw error; // Rethrow the error to handle it in the calling code
-//   }
-// }
 
 /**
  * 
@@ -158,18 +134,84 @@ router.get('/add-post', authMiddleware, async (req, res) => {
  * POST /
  * Admin - Create New Post
 */
-router.get('/add-post', authMiddleware, async (req, res) => {
+router.post('/add-post', authMiddleware, async (req, res) => {
+  //summary=summary.text;
   try {
-    const locals = {
-      title: 'Add Post',
-      description: 'Simple Blog created with NodeJs, Express & MongoDb.'
+
+    var summary={
+      text: 'No summary avaibable',
+      finish_reason: 'stop',
+      model: 'gpt-3.5-turbo-030'
+    };
+    //////////////////////////////////////////
+    
+    const request = require('request');
+
+const options = {
+  method: 'POST',
+  url: 'https://chatgpt-api8.p.rapidapi.com/',
+  headers: {
+    'content-type': 'application/json',
+    'X-RapidAPI-Key': '903ea57a35msh5cb879c48a015c5p18d302jsneb13607cffbb',
+    'X-RapidAPI-Host': 'chatgpt-api8.p.rapidapi.com'
+  },
+  body: [
+    {
+      content: req.body.body + "sumarrize this",
+      role: 'user'
+    }
+  ],
+  json: true
+};
+
+request(options, function (error, response, body) {
+	if (error) throw new Error(error);
+
+  summary = body;
+	console.log(body);
+});
+//////////////////////////////////////////////////
+    try {
+      const username= req.cookies.username;
+
+      const newPost = new Post({
+        title: req.body.title,
+        body: req.body.body,   
+        Username: username,
+        Summary: summary.text,
+      });
+
+      await Post.create(newPost);
+      res.redirect('/dashboard');
+    } catch (error) {
+      console.log(error);
     }
 
-    const data = await Post.find();
-    res.render('admin/add-post', {
+   } catch (error) {
+     console.log(error);
+   }
+});
+
+
+/**
+ * GET /
+ * Admin - Create New Post
+*/
+router.get('/edit-post/:id', authMiddleware, async (req, res) => {
+  try {
+
+    const locals = {
+      title: "Edit Post",
+      description: "Free NodeJs User Management System",
+    };
+
+    const data = await Post.findOne({ _id: req.params.id });
+
+    res.render('admin/edit-post', {
       locals,
+      data,
       layout: adminLayout
-    });
+    })
 
   } catch (error) {
     console.log(error);
@@ -179,56 +221,25 @@ router.get('/add-post', authMiddleware, async (req, res) => {
 
 
 /**
- * POST /
+ * PUT /
  * Admin - Create New Post
 */
-router.post('/add-post', authMiddleware, async (req, res) => {
+router.put('/edit-post/:id', authMiddleware, async (req, res) => {
+  try {
 
+    await Post.findByIdAndUpdate(req.params.id, {
+      title: req.body.title,
+      body: req.body.body,
+      updatedAt: Date.now()
+    });
 
-  // const axios = require('axios');
+    res.redirect(`/edit-post/${req.params.id}`);
 
-  // const options = {
-  //   method: 'POST',
-  //   url: 'https://chatgpt-api8.p.rapidapi.com/',
-  //   headers: {
-  //     'content-type': 'application/json',
-  //     'X-RapidAPI-Key': '2b71f52155mshcf3efdea631d0acp172739jsnb8acb7705edf',
-  //     'X-RapidAPI-Host': 'chatgpt-api8.p.rapidapi.com'
-  //   },
-  //   data: [
-  //     {
-  //       content: req.body.body + "summarize this",
-  //       role: 'user'
-  //     }
-  //   ]
-  // };
-  
-  // try {
-  //   const response = await axios.request(options);
-  //   console.log(response.data);
-  // // } catch (error) {
-  // //   console.error(error);
-  // // }
+  } catch (error) {
+    console.log(error);
+  }
 
-
-      try {
-        const username = req.cookies.username;
-
-        //const result = await summarizer(req.body.body);
-
-        const newPost = new Post({
-          title: req.body.title,
-          body: req.body.body,
-          Username: username,
-          //Summary: response.text,
-        });
-
-        await Post.create(newPost);
-        res.redirect('/dashboard');
-      } catch (error) {
-        console.log(error);
-      }});
-
+});
 
 
 // router.post('/admin', async (req, res) => {

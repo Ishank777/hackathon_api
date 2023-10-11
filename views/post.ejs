@@ -9,3 +9,52 @@
 <h5><%= data.Approved %></h5>
 <h5>summary : </h5>
 <h5><%= data.Summary %></h5>
+
+<!-- ishank -->
+<!-- like dislike icons start -->
+<div style="font-size: 20px;">
+    <div class="row">
+        <div class="col-md-1">
+            <i class="fa fa-thumbs-up" onclick=></i>
+            <span id="like"><%= likes %></span>
+        </div>
+        <div class="col-md-1">
+            <i class="fa fa-thumbs-down"></i>
+            <span id="dislike"><%= dislikes %></span>
+        </div>
+    </div>
+</div>
+<!-- like dislike icons end -->
+
+
+<!-- ishank -->
+<script>
+    var socket = io();
+    var post_id = "<%= data._id %>";
+    $(document).ready(function(){
+
+        //realtime like-dislike start
+        
+        if(userId ==  null){
+            $('.fa-thumbs-up').addClass('disabled');    
+            $('.fa-thumbs-down').addClass('disabled');
+        }
+        
+        $('.fa-thumbs-up').click(function(){
+            
+            socket.emit("like",{post_id:post_id,user_id:userId});
+        });
+
+        $('.fa-thumbs-down').click(function(){
+            socket.emit("dislike",{post_id:post_id,user_id:userId});
+        });
+
+        socket.on("like_dislike", function(data){
+            if(post_id == data.post_id){
+                $('#like').text(data.likes);
+                $('#dislike').text(data.dislikes);
+            }
+        });
+        //realtime like-dislike end
+    });
+</script>

@@ -351,3 +351,9 @@ img {
 .pagination:hover {
   color: var(--black);
 }
+
+/* ishank */
+.disabled{
+  pointer-events: none;
+  color: grey;
+}

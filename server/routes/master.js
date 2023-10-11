@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const Post = require('../models/Post');
+const Post = require('../models/post');
 const User = require('../models/User');
 const bcrypt = require('bcrypt');           //password related
 const jwt = require('jsonwebtoken');          //password related
@@ -9,6 +9,11 @@ const adminLayout = '../views/layouts/master';
 const jwtSecret = process.env.JWT_SECRET;
 
 
+// Helper function to generate a random session token
+function generateSessionToken() {
+  return Math.random().toString(36).slice(2);
+}
+
 /**
  * 
  * Check Login
@@ -16,12 +21,15 @@ const jwtSecret = process.env.JWT_SECRET;
 const authMiddleware = (req, res, next ) => {
   const token = req.cookies.token;
 
-  if(!token) {
+  if(!token || !sessions[token]) {
     return res.status(401).json( { message: 'Unauthorized'} );
   }
 
   try {
     const decoded = jwt.verify(token, jwtSecret);
+    if(sessions[token]) {
+      decoded = jwt.verify(sessions[token], jwtSecret);
+    }
     req.userId = decoded.userId;
     next();
   } catch(error) {
@@ -261,44 +269,8 @@ router.get('/dashboard-m', authMiddleware, async (req, res) => {
 
     router.get('/approve-post-m/:id', authMiddleware, async (req, res) => {
       try{
-
-        const data = await Post.findById({ _id: req.params.id });
-
-
-        console.log(data.body);
-        s1=data.body;
-        s1=s1+" summarize this";
-        const s2 = s1;
-        const axios = require('axios');
-
-const options = {
-  method: 'POST',
-  url: 'https://chatgpt-api8.p.rapidapi.com/',
-  headers: {
-    'content-type': 'application/json',
-    'X-RapidAPI-Key': '903ea57a35msh5cb879c48a015c5p18d302jsneb13607cffbb',
-    'X-RapidAPI-Host': 'chatgpt-api8.p.rapidapi.com'
-  },
-  data: [
-    {
-      content: (String)(s2),
-      role: 'user'
-    }
-  ]
-};
-
-try {
-	const response = await axios.request(options);
-	console.log(response.data);
-// } catch (error) {
-// 	console.error(error);
-// }
-
-
-
       await Post.findByIdAndUpdate(req.params.id, {
-        //Summary: response.data
-        Summary: response.data.text,
+        //Summary: response.data,
         Approved: "yes"});
     // await Post.findByIdAndUpdate(req.params.id, {
     //   Summary: response.data,
@@ -310,10 +282,6 @@ try {
   } catch (error) {
     console.log(error);
   }
-
-} catch (error) {
-	console.error(error);
-}
 
 });
 
@@ -380,7 +348,12 @@ router.delete('/delete-post-m/:id', authMiddleware, async (req, res) => {
  * Admin Logout
 */
 router.get('/logout', (req, res) => {
-  res.clearCookie('token');
+  const sessionToken = req.cookies.sessionToken;
+  if (sessionToken) {
+    delete sessions[sessionToken];
+    res.clearCookie('sessionToken');
+  }
+  // res.clearCookie('token');
   //res.json({ message: 'Logout successful.'});
   res.redirect('/');
 });

@@ -1,7 +1,15 @@
 const express = require('express');
 const router =express.Router();
-const Post = require('../models/Post');
+// ishank
+const Post = require('../models/post');
+const Like = require('../models/like');
 //routes
+
+// ishank
+const app = express();
+var http = require('http').createServer(app);
+var { Server } = require('socket.io');
+var io = new Server(http,{});
 
 router.get('',async (req,res) => {                   //uses the router instead of the app
 
@@ -59,6 +67,28 @@ try {
 
 
 
+
+// ishank
+router.get('/post/:id', async (req, res) => {
+    try {
+
+        const likes = await Like.find({ "post_id":req.params.id,type:1 }).count();
+        const dislikes = await Like.find({ "post_id":req.params.id,type:0 }).count();
+
+        let slug = req.params.id; // Corrected variable name
+
+        const data = await Post.findById({ _id: slug }); // Corrected variable name
+
+        const locals = {
+            title: data.title,
+            description: "simple blog post",
+        }
+
+        res.render('post', { locals, data, likes:likes,dislikes:dislikes }); // Corrected object structure
+    } catch (error) {
+        console.log(error);
+    }
+})
 
 
 router.get('/post/:id', async (req, res) => {
@@ -124,4 +154,79 @@ router.get('/about', (req, res) => {
     // Handle the GET request for /contact here
     res.render('about');
 });
+
+
+// ishank
+io.on("connection",function(socket){
+    console.log('User Connected');
+
+    socket.on("new_post",function(formData){
+        console.log(formData);
+        socket.broadcast.emit("new_post", formData);
+    });
+
+    socket.on("new_comment",function(comment){
+        io.emit("new_comment",comment);
+    });
+
+    socket.on("new_reply",function(reply){
+        io.emit("new_reply",reply);
+    });
+
+    socket.on("delete_post",function(postId){
+        socket.broadcast.emit("delete_post",postId);
+    });
+
+    socket.on('increment_page_view', async function(post_id){
+        var data = await Post.findOneAndUpdate({_id:ObjectID(post_id)}, {
+            $inc: { views: 1 }
+        },{
+            new: true,
+        });
+        socket.broadcast.emit("updated_views",data);
+    });
+
+    socket.on("like", async function(data){
+        await Like.updateOne({
+            post_id:data.post_id,
+            user_id:data.user_id
+        }, {
+            type:1
+        },
+        {
+            upsert: true
+        });
+
+        const likes = await Like.find({ "post_id":data.post_id,type:1 }).count();
+        const dislikes = await Like.find({ "post_id":data.post_id,type:0 }).count();
+
+        io.emit("like_dislike",{
+            post_id:data.post_id,
+            likes:likes,
+            dislikes:dislikes
+        });
+    });
+
+    socket.on("dislike", async function(data){
+        await Like.updateOne({
+            post_id:data.post_id,
+            user_id:data.user_id
+        }, {
+            type:0
+        },
+        {
+            upsert: true
+        });
+
+        const likes = await Like.find({ "post_id":data.post_id,type:1 }).count();
+        const dislikes = await Like.find({ "post_id":data.post_id,type:0 }).count();
+
+        io.emit("like_dislike",{
+            post_id:data.post_id,
+            likes:likes,
+            dislikes:dislikes
+        });
+    });
+});
+
 module.exports = router;
